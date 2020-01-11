@@ -1,8 +1,3 @@
-# TCGA
-TCGA data retrieval and analysis
+# tcga-utils
+Utilities for retrieving data from The Cancer Genome Atlas (TCGA) and performing image analysis on whole slide images. This repo is a work in progress and draws heavily from the amazing python-wsi-preprocessing repo (https://github.com/deroneriksson/python-wsi-preprocessing).
 
-## Data retrieval
-Use manifest generated when downloading files from GDC (TCGA data portal) to extract case IDs. Case IDs are then used to look up UUIDs for corresponding gene expression annotation and slide image files and download files.  
-
-Annotated somatic mutation file retrieval is still a work in progress.
-#tcga-utils
