@@ -1,6 +1,8 @@
 import logging
 import setuptools
 
+from distutils.command.build_ext import build_ext as DistUtilsBuildExt
+
 try:
     from setuptools import setup, find_packages
 except ImportError:
