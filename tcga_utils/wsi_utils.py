@@ -494,12 +494,21 @@ class TCGADataset(object):
     ML friendly tile format
     """
     def __init__(self, uuid, mpp=0.5):
-        svs_filename = tcga_utils.download_by_uuids(uuid)
+        svs_filename = download_utils.download_by_uuids(uuid)
         slide = wsi_utils.open_slide(svs_filename)
         tiles = wsi_utils.slide_to_tiles(slide, new_mpp=mpp)
         filtered_tiles = wsi_utils.filter_tiles(tiles)
+        download_utils.remove_file(svs_filename)
         
         self.uuid = uuid
         self.tiles = filtered_tiles
         self.mpp = mpp
+        self.annotation = {}
         return None
+
+    def _add_annotation(annotation_dict, annotation_name):
+        """
+        Add annotation from an annotation dictionary. Assumues the uuid is the key 
+        for the annotation
+        """
+        self.annotation[annotation_name] = annotation_dict[self.uuid]

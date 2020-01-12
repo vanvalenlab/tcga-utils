@@ -70,3 +70,9 @@ def download_by_uuids(uuids, save_direc='/data/TCGA'):
         output_file.write(response.content)
         
     return file_name
+
+def remove_file(file_name):
+    try:
+        os.remove(file_name)
+    except:
+        print('Error deleting file %s' %(file_name))
