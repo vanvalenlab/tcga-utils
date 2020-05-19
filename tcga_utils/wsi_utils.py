@@ -500,8 +500,12 @@ class TCGADict:
         """
         Function to extract all the uuid (keys) as a list
         """
-        uuid_keys = list(dict.keys(tcga_dictionary()))
+        uuid_keys = list(dict.keys(TCGADict.tcga_dictionary()))
         return uuid_keys
+
+## uncomment the code below to use tcga_dictionary directly. Can look up the class of the uuid by
+## using tcga_dictionary['uuid_here'] and returns a value of 1-12 (class/cluster #)
+## tcga_dictionary = TCGADict.tcga_dictionary()
 
 class TCGADataset(object):
     """
