@@ -55,11 +55,11 @@ def slide_to_img(slide, new_mpp=0.5, return_np=True, return_sizes=False):
     """
     old_mpp_x = np.float(slide.properties['openslide.mpp-x'])
     old_mpp_y = np.float(slide.properties['openslide.mpp-y'])
-    
+
     new_mpp = np.float(new_mpp)
-    
+
     SCALE_FACTOR = new_mpp/old_mpp_x
-        
+
     large_w, large_h = slide.dimensions
     new_w = math.floor(large_w / SCALE_FACTOR)
     new_h = math.floor(large_h / SCALE_FACTOR)
@@ -74,7 +74,7 @@ def slide_to_img(slide, new_mpp=0.5, return_np=True, return_sizes=False):
     if return_sizes:
         return img, large_w, large_h, new_w, new_h
 
-    else: 
+    else:
         return img
 
 def slide_to_tiles(slide, new_mpp=0.5, tile_size=512, overlap=0):
@@ -86,22 +86,22 @@ def slide_to_tiles(slide, new_mpp=0.5, tile_size=512, overlap=0):
     mpp = np.float(slide.properties['openslide.mpp-x'])
     scale_factor = new_mpp/mpp
     offset = math.floor(np.log2((scale_factor + 0.1)))
-    
+
 
     level_mpp = 2**offset * mpp
     scale_from_level = new_mpp/level_mpp
     level_tile_size = math.ceil(tile_size * scale_from_level)
 
-    generator = DeepZoomGenerator(slide, 
-                                tile_size=level_tile_size, 
-                                overlap=overlap, 
+    generator = DeepZoomGenerator(slide,
+                                tile_size=level_tile_size,
+                                overlap=overlap,
                                 limit_bounds=True)
 
-    highest_level = generator.level_count - 1 
+    highest_level = generator.level_count - 1
     level = highest_level - offset
 
     cols, rows = generator.level_tiles[level]
-    
+
     # Extract tiles
     tiles = []
     for col in range(cols):
@@ -197,8 +197,8 @@ def adjust_contrast(img, mode='stretch', dtype='uint8', **kwargs):
 
     return img
 
-def filter_red(img, red_lower_thresh, 
-                    green_upper_thresh, 
+def filter_red(img, red_lower_thresh,
+                    green_upper_thresh,
                     blue_upper_thresh,
                     dtype='bool'):
     """
@@ -219,7 +219,7 @@ def filter_red(img, red_lower_thresh,
 
     return mask
 
-def filter_green(img, red_upper_thresh, 
+def filter_green(img, red_upper_thresh,
                     green_lower_thresh,
                     blue_lower_thresh,
                     dtype='bool'):
@@ -290,9 +290,9 @@ def filter_grays(img, tolerance=15, dtype="bool"):
 
     return mask
 
-def filter_green_channel(img, green_thresh=200, 
-                            avoid_overmask=True, 
-                            overmask_thresh=90, 
+def filter_green_channel(img, green_thresh=200,
+                            avoid_overmask=True,
+                            overmask_thresh=90,
                             dtype="bool"):
     """
     Create a mask to filter out pixels with a green channel value greater than a particular threshold, since hematoxylin
@@ -344,7 +344,7 @@ def filter_red_pen(img, dtype='bool'):
            filter_red(img, red_lower_thresh=200, green_upper_thresh=120, blue_upper_thresh=150) & \
            filter_red(img, red_lower_thresh=100, green_upper_thresh=50, blue_upper_thresh=65) & \
            filter_red(img, red_lower_thresh=85, green_upper_thresh=25, blue_upper_thresh=45)
-    
+
     if dtype == 'bool':
         pass
     elif dtype == 'float':
@@ -456,12 +456,12 @@ def filter_tile(img):
     mask_no_red_pen = filter_red_pen(img)
     mask_no_green_pen = filter_green_pen(img)
     mask_no_blue_pen = filter_blue_pen(img)
-    
+
     mask = mask_not_green & mask_not_gray & mask_no_red_pen & mask_no_green_pen & mask_no_blue_pen
-    
+
     # Remove small objects
     mask = remove_small_objects(mask, min_size=3000)
-    
+
     return mask
 
 def filter_tiles(tiles, tissue_threshold=50, mask_tissue=False):
@@ -478,19 +478,38 @@ def filter_tiles(tiles, tissue_threshold=50, mask_tissue=False):
         if tissue_percentage > tissue_threshold:
             filtered_tiles.append(tile)
     filtered_tiles = np.stack(filtered_tiles, axis=0)
-    
+
     if mask_tissue:
         return filtered_tiles, mask, mask_tissue
     else:
-        return filtered_tiles    
+        return filtered_tiles
 
 """
 Prototypes - untested and should not be used
 """
+class TCGADict:
+    def tcga_dictionary():
+        """
+        Dictionary for the uuids (as keys) and their corresponding classes/cluster (value)
+        """
+        tcga_df = pd.read_csv("../tcga_utils/tcga_uuid.csv", usecols = ["uuid_case", "cluster"])
+        tcga_dict = dict(zip(tcga_df.uuid_case, tcga_df.cluster))
+        return tcga_dict
+
+    def tcga_uuid_keys():
+        """
+        Function to extract all the uuid (keys) as a list
+        """
+        uuid_keys = list(dict.keys(TCGADict.tcga_dictionary()))
+        return uuid_keys
+
+## uncomment the code below to use tcga_dictionary directly. Can look up the class of the uuid by
+## using tcga_dictionary['uuid_here'] and returns a value of 1-12 (class/cluster #)
+## tcga_dictionary = TCGADict.tcga_dictionary()
 
 class TCGADataset(object):
     """
-    Prototype TCGA Dataset object to handle file download conversion to 
+    Prototype TCGA Dataset object to handle file download conversion to
     ML friendly tile format
     """
     def __init__(self, uuid, mpp=0.5):
@@ -499,7 +518,7 @@ class TCGADataset(object):
         tiles = wsi_utils.slide_to_tiles(slide, new_mpp=mpp)
         filtered_tiles = wsi_utils.filter_tiles(tiles)
         download_utils.remove_file(svs_filename)
-        
+
         self.uuid = uuid
         self.tiles = filtered_tiles
         self.mpp = mpp
@@ -508,7 +527,7 @@ class TCGADataset(object):
 
     def _add_annotation(annotation_dict, annotation_name):
         """
-        Add annotation from an annotation dictionary. Assumues the uuid is the key 
+        Add annotation from an annotation dictionary. Assumues the uuid is the key
         for the annotation
         """
         self.annotation[annotation_name] = annotation_dict[self.uuid]
