@@ -487,6 +487,21 @@ def filter_tiles(tiles, tissue_threshold=50, mask_tissue=False):
 """
 Prototypes - untested and should not be used
 """
+class TCGADict:
+    def tcga_dictionary():
+        """
+        Dictionary for the uuids (as keys) and their corresponding classes/cluster (value)
+        """
+        tcga_df = pd.read_csv("../tcga_utils/tcga_uuid.csv", usecols = ["uuid_case", "cluster"])
+        tcga_dict = dict(zip(tcga_df.uuid_case, tcga_df.cluster))
+        return tcga_dict
+
+    def tcga_uuid_keys():
+        """
+        Function to extract all the uuid (keys) as a list
+        """
+        uuid_keys = list(dict.keys(tcga_dictionary()))
+        return uuid_keys
 
 class TCGADataset(object):
     """
@@ -505,28 +520,6 @@ class TCGADataset(object):
         self.mpp = mpp
         self.annotation = {}
         return None
-
-    def tcga_dictionary():
-        """
-        Dictionary for classes/clusters and their corresponding uuid_cases (extracted from table produced by Peter Nguyen).
-        Function is stored within TCGADataset class. It can be callable using tcga_class['class #']. Also note that class number
-        corresponds to the cluster number
-        """
-        tcga_df = pd.read_csv("../tcga_utils/tcga_uuid.csv", usecols = ["uuid_case", "cluster"], index_col = "cluster")
-        tcga_keys = {'class 1' : tcga_df.loc[1],
-                    'class 2' : tcga_df.loc[2],
-                    'class 3' : tcga_df.loc[3],
-                    'class 4' : tcga_df.loc[4],
-                    'class 5' : tcga_df.loc[5],
-                    'class 6' : tcga_df.loc[6],
-                    'class 7' : tcga_df.loc[7],
-                    'class 8' : tcga_df.loc[8],
-                    'class 9' : tcga_df.loc[9],
-                    'class 10' : tcga_df.loc[10],
-                    'class 11' : tcga_df.loc[11],
-                    'class 12' : tcga_df.loc[12]}
-        return tcga_keys
-tcga_class = TCGADataset.tcga_dictionary()
 
     def _add_annotation(annotation_dict, annotation_name):
         """
