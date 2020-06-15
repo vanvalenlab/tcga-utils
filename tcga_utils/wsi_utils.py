@@ -29,6 +29,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import sys
+sys.path.append('..')
+
 import os
 import pandas as pd
 import numpy as np
@@ -39,6 +42,7 @@ import openslide
 import PIL
 import math
 import cv2
+from tcga_utils import download_utils
 
 from skimage.morphology import remove_small_objects
 from openslide.deepzoom import DeepZoomGenerator
@@ -487,21 +491,20 @@ def filter_tiles(tiles, tissue_threshold=50, mask_tissue=False):
 """
 Prototypes - untested and should not be used
 """
-class TCGADict:
-    def tcga_dictionary():
-        """
-        Dictionary for the uuids (as keys) and their corresponding classes/cluster (value)
-        """
-        tcga_df = pd.read_csv("../tcga_utils/tcga_uuid.csv", usecols = ["uuid_case", "cluster"])
-        tcga_dict = dict(zip(tcga_df.uuid_case, tcga_df.cluster))
-        return tcga_dict
+def tcga_dictionary():
+    """
+    Dictionary for the uuids (as keys) and their corresponding classes/cluster (value)
+    """
+    tcga_df = pd.read_csv("../manifest/tcga_uuid.csv", usecols = ["uuid_case", "cluster"])
+    tcga_dict = dict(zip(tcga_df.uuid_case, tcga_df.cluster))
+    return tcga_dict
 
-    def tcga_uuid_keys():
-        """
-        Function to extract all the uuid (keys) as a list
-        """
-        uuid_keys = list(dict.keys(TCGADict.tcga_dictionary()))
-        return uuid_keys
+def tcga_uuid_keys():
+    """
+    Function to extract all the uuid (keys) as a list
+    """
+    uuid_keys = list(dict.keys(tcga_dictionary()))
+    return uuid_keys
 
 ## uncomment the code below to use tcga_dictionary directly. Can look up the class of the uuid by
 ## using tcga_dictionary['uuid_here'] and returns a value of 1-12 (class/cluster #)
@@ -513,14 +516,15 @@ class TCGADataset(object):
     ML friendly tile format
     """
     def __init__(self, uuid, mpp=0.5):
-        svs_filename = download_utils.download_by_uuids(uuid)
-        slide = wsi_utils.open_slide(svs_filename)
-        tiles = wsi_utils.slide_to_tiles(slide, new_mpp=mpp)
-        filtered_tiles = wsi_utils.filter_tiles(tiles)
+        svs_filename = download_utils.download_by_uuids(uuid, save_direc = '../data/TCGA')
+        slide = open_slide(svs_filename)
+        tiles = slide_to_tiles(slide, new_mpp=mpp)
+        filtered_tiles = filter_tiles(tiles)
         download_utils.remove_file(svs_filename)
 
         self.uuid = uuid
-        self.tiles = filtered_tiles
+        self.tiles = tiles
+        self.filtered_tiles = filtered_tiles
         self.mpp = mpp
         self.annotation = {}
         return None
