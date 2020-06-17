@@ -1,0 +1,45 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+#install.packages('splitstackshape')
+#install.packages('caret')
+library(data.table)
+library(tidyverse)
+library(caret)
+library(splitstackshape)
+```
+
+```{r}
+#Upload the GDC manifest (david) and kNN classes (peter)
+david <- fread(file = "../gdc_manifest.2020-01-07.txt")
+peter2 <- fread(file = "../peter_clusters_knn.tsv")
+
+#Convert knn_clust column into a factor. Down sample the table so that each classes have equal samples
+peter2$knn_clust <- paste("cluster", peter2$knn_clust, sep = " ") %>% as.factor()
+peter2_down <- downSample(x = peter2, y = peter2$knn_clust)
+
+#Create a column for both tables that contains TCGA patient ID, sample, and vial
+david$linker <- substring(text = david$filename, first = 1, last = 16)
+peter2_down$linker <- substring(text = peter2_down$sample_id, first = 1, last = 16)
+
+#Merge the tables together based on the TCGA patient ID. Convert the sample_id to a factor. Remember, the kNN table has 1 patient per row (1 TCGA ID for patient). However, the GDC manifest may contain some cases where multiple images (each image contains its own ID) is linked to one single patient.
+join <- david %>% left_join(., peter2_down, by = "linker") %>%
+  na.omit %>%
+  select(., -c(x_2d, y_2d, x_3d, y_3d, z_3d, clust, member_prob, Class))
+join$sample_id <- as.factor(join$sample_id)
+
+#Down sample the table. Each sample_id will be its own factor. Down sampling it makes sure that it each factor (sample_id) will have a single image (we are assuming that the least prevalent factor, the sample_id, will only have 1).
+join_down <- downSample(x = join, y = join$sample_id) %>%
+  select(., -c(Class))
+join_down_1000 <- stratified(join_down, "knn_clust", size = 84)
+table(join_down_1000$knn_clust)
+
+write_csv(join_down_1000, "../sample_manifest.csv")
+```
+
