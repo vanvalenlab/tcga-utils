@@ -53,8 +53,8 @@ def download_by_uuids(uuids, save_direc='/data/TCGA'):
     else:
         raise ValueError('uuids should be either a string or a list')
 
-	if not os.path.exists(save_direc):
-		os.makedirs(save_direc)     
+    if not os.path.exists(save_direc):
+        os.makedirs(save_direc)     
         
     endpoint = 'https://api.gdc.cancer.gov/data'
     params = {'ids': uuids}
@@ -64,9 +64,15 @@ def download_by_uuids(uuids, save_direc='/data/TCGA'):
 
     response_head_cd = response.headers['Content-Disposition']
     file_name = re.findall('filename=(.+)', response_head_cd)[0]
-    file_name = os.path.join(save_folder, file_name)
+    file_name = os.path.join(save_direc, file_name)
 
     with open(file_name, "wb") as output_file:
         output_file.write(response.content)
         
     return file_name
+
+def remove_file(file_name):
+    try:
+        os.remove(file_name)
+    except:
+        print('Error deleting file %s' %(file_name))

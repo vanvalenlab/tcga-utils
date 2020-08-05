@@ -29,8 +29,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tcga import tcga_utils
-from tcga import wsi_utils
+from tcga_utils import download_utils
+from tcga_utils import wsi_utils
 
 del absolute_import
 del division

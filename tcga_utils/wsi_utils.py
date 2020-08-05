@@ -44,6 +44,9 @@ from skimage.morphology import remove_small_objects
 from openslide.deepzoom import DeepZoomGenerator
 
 def open_slide(svs_filename):
+    """
+    Open a wsi and return a OpenSlide object
+    """
     return openslide.OpenSlide(svs_filename)
 
 def slide_to_img(slide, new_mpp=0.5, return_np=True, return_sizes=False):
@@ -78,7 +81,6 @@ def slide_to_tiles(slide, new_mpp=0.5, tile_size=512, overlap=0):
     """
     Convert a slide to tiles with a given mpp and tile size
     """
-
 
     # Identify appropriate pyramid level for given micron per pixel
     mpp = np.float(slide.properties['openslide.mpp-x'])
@@ -446,11 +448,14 @@ def tissue_percent(img):
     return 100 - mask_percent(img)
 
 def filter_tile(img):
-    mask_not_green = wsi_utils.filter_green_channel(img, avoid_overmask = False)
-    mask_not_gray = wsi_utils.filter_grays(img)
-    mask_no_red_pen = wsi_utils.filter_red_pen(img)
-    mask_no_green_pen = wsi_utils.filter_green_pen(img)
-    mask_no_blue_pen = wsi_utils.filter_blue_pen(img)
+    """
+    Compute a tissue mask for a given tile using color filters
+    """
+    mask_not_green = filter_green_channel(img, avoid_overmask = False)
+    mask_not_gray = filter_grays(img)
+    mask_no_red_pen = filter_red_pen(img)
+    mask_no_green_pen = filter_green_pen(img)
+    mask_no_blue_pen = filter_blue_pen(img)
     
     mask = mask_not_green & mask_not_gray & mask_no_red_pen & mask_no_green_pen & mask_no_blue_pen
     
@@ -460,14 +465,50 @@ def filter_tile(img):
     return mask
 
 def filter_tiles(tiles, tissue_threshold=50, mask_tissue=False):
+    """
+    Apply filter_tile to a collection of tiles and return only the
+    tiles whose tissue percentage exceeds the given threshold
+    """
     filtered_tiles = []
     for tile in tiles:
         mask = filter_tile(tile)
-        tissue_percentage = wsi_utils.tissue_percent(mask)
+        tissue_percentage = tissue_percent(mask)
         if mask_tissue:
             tile = tile * mask
         if tissue_percentage > tissue_threshold:
             filtered_tiles.append(tile)
     filtered_tiles = np.stack(filtered_tiles, axis=0)
     
-    return filtered_tiles    
+    if mask_tissue:
+        return filtered_tiles, mask, mask_tissue
+    else:
+        return filtered_tiles    
+
+"""
+Prototypes - untested and should not be used
+"""
+
+class TCGADataset(object):
+    """
+    Prototype TCGA Dataset object to handle file download conversion to 
+    ML friendly tile format
+    """
+    def __init__(self, uuid, mpp=0.5):
+        svs_filename = download_utils.download_by_uuids(uuid)
+        slide = wsi_utils.open_slide(svs_filename)
+        tiles = wsi_utils.slide_to_tiles(slide, new_mpp=mpp)
+        filtered_tiles = wsi_utils.filter_tiles(tiles)
+        download_utils.remove_file(svs_filename)
+        
+        self.uuid = uuid
+        self.tiles = filtered_tiles
+        self.mpp = mpp
+        self.annotation = {}
+        return None
+
+    def _add_annotation(annotation_dict, annotation_name):
+        """
+        Add annotation from an annotation dictionary. Assumues the uuid is the key 
+        for the annotation
+        """
+        self.annotation[annotation_name] = annotation_dict[self.uuid]
