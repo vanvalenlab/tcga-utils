@@ -1,9 +1,9 @@
 # Use tensorflow/tensorflow as the base image
 # Change the build arg to edit the tensorflow version.
 # Only supporting python3.
-ARG TF_VERSION=1.15.0-gpu
+ARG TF_VERSION=2.3.0-gpu
 
-FROM tensorflow/tensorflow:${TF_VERSION}-py3
+FROM tensorflow/tensorflow:${TF_VERSION}
 
 # System maintenance
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -54,7 +54,7 @@ RUN sed -i "/tensorflow/d" /opt/TCGA/requirements.txt && \
 
 # Install deepcell via setup.py
 WORKDIR /opt
-RUN git clone https://github.com/vanvalenlab/deepcell-tf.git
+RUN git clone -b tf2_migration https://github.com/vanvalenlab/deepcell-tf.git
 RUN pip install /opt/deepcell-tf && \
     cd /opt/deepcell-tf && \
     python setup.py build_ext --inplace
