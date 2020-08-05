@@ -63,5 +63,18 @@ WORKDIR /notebooks
 # Install the latest version of keras-applications
 RUN pip install --upgrade git+https://github.com/keras-team/keras-applications.git
 
-# Copy over deepcell notebooks
+# Install tcga-utils
+WORKDIR /opt
+COPY setup.py requirements.txt /opt/tcga-utils/
+COPY tcga_utils /opt/tcga-utils/tcga_utils
+COPY manifest /data/manifest
+RUN pip install /opt/tcga-utils && \
+    cd /opt/tcga-utils && \
+    python setup.py build_ext --inplace
+WORKDIR /notebooks
+
+# Copy over tcga notebooks
 COPY scripts/ /notebooks/
+
+# Start Jupyter
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--allow-root"]
