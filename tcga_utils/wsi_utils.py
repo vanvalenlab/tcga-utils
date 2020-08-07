@@ -43,11 +43,13 @@ import cv2
 from skimage.morphology import remove_small_objects
 from openslide.deepzoom import DeepZoomGenerator
 
+
 def open_slide(svs_filename):
     """
     Open a wsi and return a OpenSlide object
     """
     return openslide.OpenSlide(svs_filename)
+
 
 def slide_to_img(slide, new_mpp=0.5, return_np=True, return_sizes=False):
     """
@@ -77,7 +79,8 @@ def slide_to_img(slide, new_mpp=0.5, return_np=True, return_sizes=False):
     else: 
         return img
 
-def slide_to_tiles(slide, new_mpp=0.5, tile_size=512, overlap=0):
+
+def slide_to_tiles(slide, new_mpp=0.5, tile_size=512, overlap=0, return_locations=False):
     """
     Convert a slide to tiles with a given mpp and tile size
     """
@@ -86,33 +89,42 @@ def slide_to_tiles(slide, new_mpp=0.5, tile_size=512, overlap=0):
     mpp = np.float(slide.properties['openslide.mpp-x'])
     scale_factor = new_mpp/mpp
     offset = math.floor(np.log2((scale_factor + 0.1)))
-    
 
     level_mpp = 2**offset * mpp
     scale_from_level = new_mpp/level_mpp
     level_tile_size = math.ceil(tile_size * scale_from_level)
 
-    generator = DeepZoomGenerator(slide, 
-                                tile_size=level_tile_size, 
-                                overlap=overlap, 
-                                limit_bounds=True)
+    generator = DeepZoomGenerator(slide,
+                                  tile_size=level_tile_size,
+                                  overlap=overlap,
+                                  limit_bounds=True)
 
-    highest_level = generator.level_count - 1 
+    highest_level = generator.level_count - 1
     level = highest_level - offset
 
     cols, rows = generator.level_tiles[level]
-    
+
     # Extract tiles
     tiles = []
+    tile_locations = []
     for col in range(cols):
         for row in range(rows):
             tile = np.array(generator.get_tile(level, (col, row)))
             if tile.shape[0] == level_tile_size and tile.shape[1] == level_tile_size:
-                tile = cv2.resize(tile, (tile_size, tile_size), interpolation = cv2.INTER_LINEAR)
+                tile = cv2.resize(tile,
+                                  (tile_size, tile_size),
+                                  interpolation=cv2.INTER_LINEAR)
                 tiles.append(tile)
-    tiles = np.stack(tiles, axis=0)
+                tile_locations.append([row, col])
 
-    return tiles
+    tiles = np.stack(tiles, axis=0)
+    tile_locations = np.array(tile_locations)
+
+    if return_locations:
+        return tiles, tile_locations
+    else:
+        return tiles
+
 
 def rgb_to_grayscale(rgb_img, invert=True, dtype='uint8'):
     """
@@ -133,6 +145,7 @@ def rgb_to_grayscale(rgb_img, invert=True, dtype='uint8'):
             grayscale = 1 - grayscale
 
     return grayscale
+
 
 def threshold(img, dtype='uint8', mode='hysteresis', **kwargs):
     """
@@ -163,6 +176,7 @@ def threshold(img, dtype='uint8', mode='hysteresis', **kwargs):
         mask = mask.astype(dtype) * 255
 
     return mask
+
 
 def adjust_contrast(img, mode='stretch', dtype='uint8', **kwargs):
     """
@@ -197,10 +211,12 @@ def adjust_contrast(img, mode='stretch', dtype='uint8', **kwargs):
 
     return img
 
-def filter_red(img, red_lower_thresh, 
-                    green_upper_thresh, 
-                    blue_upper_thresh,
-                    dtype='bool'):
+
+def filter_red(img,
+               red_lower_thresh,
+               green_upper_thresh,
+               blue_upper_thresh,
+               dtype='bool'):
     """
     Create a mask that filters out red pixels
     """
@@ -219,10 +235,12 @@ def filter_red(img, red_lower_thresh,
 
     return mask
 
-def filter_green(img, red_upper_thresh, 
-                    green_lower_thresh,
-                    blue_lower_thresh,
-                    dtype='bool'):
+
+def filter_green(img,
+                 red_upper_thresh,
+                 green_lower_thresh,
+                 blue_lower_thresh,
+                 dtype='bool'):
     """
     Create a mask that filters out green pixels
     """
@@ -240,6 +258,7 @@ def filter_green(img, red_upper_thresh,
         mask = (255*mask).astype(dtype)
 
     return mask
+
 
 def filter_blue(img, red_upper_thresh,
                     green_upper_thresh,
@@ -262,6 +281,7 @@ def filter_blue(img, red_upper_thresh,
         mask = (255*mask).astype(dtype)
 
     return mask
+
 
 def filter_grays(img, tolerance=15, dtype="bool"):
     """
@@ -290,10 +310,12 @@ def filter_grays(img, tolerance=15, dtype="bool"):
 
     return mask
 
-def filter_green_channel(img, green_thresh=200, 
-                            avoid_overmask=True, 
-                            overmask_thresh=90, 
-                            dtype="bool"):
+
+def filter_green_channel(img,
+                         green_thresh=200,
+                         avoid_overmask=True,
+                         overmask_thresh=90,
+                         dtype="bool"):
     """
     Create a mask to filter out pixels with a green channel value greater than a particular threshold, since hematoxylin
     and eosin are purplish and pinkish, which do not have much green to them.
@@ -326,6 +348,7 @@ def filter_green_channel(img, green_thresh=200,
 
     return mask
 
+
 def filter_red_pen(img, dtype='bool'):
     """
     Create a mask to filter out red pen marks from a slide.
@@ -336,14 +359,14 @@ def filter_red_pen(img, dtype='bool'):
         NumPy array representing the mask.
     """
     mask = filter_red(img, red_lower_thresh=150, green_upper_thresh=80, blue_upper_thresh=90) & \
-           filter_red(img, red_lower_thresh=110, green_upper_thresh=20, blue_upper_thresh=30) & \
-           filter_red(img, red_lower_thresh=185, green_upper_thresh=65, blue_upper_thresh=105) & \
-           filter_red(img, red_lower_thresh=195, green_upper_thresh=85, blue_upper_thresh=125) & \
-           filter_red(img, red_lower_thresh=220, green_upper_thresh=115, blue_upper_thresh=145) & \
-           filter_red(img, red_lower_thresh=125, green_upper_thresh=40, blue_upper_thresh=70) & \
-           filter_red(img, red_lower_thresh=200, green_upper_thresh=120, blue_upper_thresh=150) & \
-           filter_red(img, red_lower_thresh=100, green_upper_thresh=50, blue_upper_thresh=65) & \
-           filter_red(img, red_lower_thresh=85, green_upper_thresh=25, blue_upper_thresh=45)
+        filter_red(img, red_lower_thresh=110, green_upper_thresh=20, blue_upper_thresh=30) & \
+        filter_red(img, red_lower_thresh=185, green_upper_thresh=65, blue_upper_thresh=105) & \
+        filter_red(img, red_lower_thresh=195, green_upper_thresh=85, blue_upper_thresh=125) & \
+        filter_red(img, red_lower_thresh=220, green_upper_thresh=115, blue_upper_thresh=145) & \
+        filter_red(img, red_lower_thresh=125, green_upper_thresh=40, blue_upper_thresh=70) & \
+        filter_red(img, red_lower_thresh=200, green_upper_thresh=120, blue_upper_thresh=150) & \
+        filter_red(img, red_lower_thresh=100, green_upper_thresh=50, blue_upper_thresh=65) & \
+        filter_red(img, red_lower_thresh=85, green_upper_thresh=25, blue_upper_thresh=45)
     
     if dtype == 'bool':
         pass
@@ -353,6 +376,7 @@ def filter_red_pen(img, dtype='bool'):
         mask = (255*mask).astype(dtype)
 
     return mask
+
 
 def filter_green_pen(img, dtype="bool"):
     """
@@ -364,20 +388,20 @@ def filter_green_pen(img, dtype="bool"):
         NumPy array representing the mask.
     """
     mask = filter_green(img, red_upper_thresh=150, green_lower_thresh=160, blue_lower_thresh=140) & \
-           filter_green(img, red_upper_thresh=70, green_lower_thresh=110, blue_lower_thresh=110) & \
-           filter_green(img, red_upper_thresh=45, green_lower_thresh=115, blue_lower_thresh=100) & \
-           filter_green(img, red_upper_thresh=30, green_lower_thresh=75, blue_lower_thresh=60) & \
-           filter_green(img, red_upper_thresh=195, green_lower_thresh=220, blue_lower_thresh=210) & \
-           filter_green(img, red_upper_thresh=225, green_lower_thresh=230, blue_lower_thresh=225) & \
-           filter_green(img, red_upper_thresh=170, green_lower_thresh=210, blue_lower_thresh=200) & \
-           filter_green(img, red_upper_thresh=20, green_lower_thresh=30, blue_lower_thresh=20) & \
-           filter_green(img, red_upper_thresh=50, green_lower_thresh=60, blue_lower_thresh=40) & \
-           filter_green(img, red_upper_thresh=30, green_lower_thresh=50, blue_lower_thresh=35) & \
-           filter_green(img, red_upper_thresh=65, green_lower_thresh=70, blue_lower_thresh=60) & \
-           filter_green(img, red_upper_thresh=100, green_lower_thresh=110, blue_lower_thresh=105) & \
-           filter_green(img, red_upper_thresh=165, green_lower_thresh=180, blue_lower_thresh=180) & \
-           filter_green(img, red_upper_thresh=140, green_lower_thresh=140, blue_lower_thresh=150) & \
-           filter_green(img, red_upper_thresh=185, green_lower_thresh=195, blue_lower_thresh=195)
+        filter_green(img, red_upper_thresh=70, green_lower_thresh=110, blue_lower_thresh=110) & \
+        filter_green(img, red_upper_thresh=45, green_lower_thresh=115, blue_lower_thresh=100) & \
+        filter_green(img, red_upper_thresh=30, green_lower_thresh=75, blue_lower_thresh=60) & \
+        filter_green(img, red_upper_thresh=195, green_lower_thresh=220, blue_lower_thresh=210) & \
+        filter_green(img, red_upper_thresh=225, green_lower_thresh=230, blue_lower_thresh=225) & \
+        filter_green(img, red_upper_thresh=170, green_lower_thresh=210, blue_lower_thresh=200) & \
+        filter_green(img, red_upper_thresh=20, green_lower_thresh=30, blue_lower_thresh=20) & \
+        filter_green(img, red_upper_thresh=50, green_lower_thresh=60, blue_lower_thresh=40) & \
+        filter_green(img, red_upper_thresh=30, green_lower_thresh=50, blue_lower_thresh=35) & \
+        filter_green(img, red_upper_thresh=65, green_lower_thresh=70, blue_lower_thresh=60) & \
+        filter_green(img, red_upper_thresh=100, green_lower_thresh=110, blue_lower_thresh=105) & \
+        filter_green(img, red_upper_thresh=165, green_lower_thresh=180, blue_lower_thresh=180) & \
+        filter_green(img, red_upper_thresh=140, green_lower_thresh=140, blue_lower_thresh=150) & \
+        filter_green(img, red_upper_thresh=185, green_lower_thresh=195, blue_lower_thresh=195)
 
     if dtype == 'bool':
         pass
@@ -387,6 +411,7 @@ def filter_green_pen(img, dtype="bool"):
         mask = (255*mask).astype(dtype)
 
     return mask
+
 
 def filter_blue_pen(img, dtype="bool"):
     """
@@ -397,18 +422,42 @@ def filter_blue_pen(img, dtype="bool"):
     Returns:
         NumPy array representing the mask.
     """
-    mask = filter_blue(img, red_upper_thresh=60, green_upper_thresh=120, blue_lower_thresh=190) & \
-           filter_blue(img, red_upper_thresh=120, green_upper_thresh=170, blue_lower_thresh=200) & \
-           filter_blue(img, red_upper_thresh=175, green_upper_thresh=210, blue_lower_thresh=230) & \
-           filter_blue(img, red_upper_thresh=145, green_upper_thresh=180, blue_lower_thresh=210) & \
-           filter_blue(img, red_upper_thresh=37, green_upper_thresh=95, blue_lower_thresh=160) & \
-           filter_blue(img, red_upper_thresh=30, green_upper_thresh=65, blue_lower_thresh=130) & \
-           filter_blue(img, red_upper_thresh=130, green_upper_thresh=155, blue_lower_thresh=180) & \
-           filter_blue(img, red_upper_thresh=40, green_upper_thresh=35, blue_lower_thresh=85) & \
-           filter_blue(img, red_upper_thresh=30, green_upper_thresh=20, blue_lower_thresh=65) & \
-           filter_blue(img, red_upper_thresh=90, green_upper_thresh=90, blue_lower_thresh=140) & \
-           filter_blue(img, red_upper_thresh=60, green_upper_thresh=60, blue_lower_thresh=120) & \
-           filter_blue(img, red_upper_thresh=110, green_upper_thresh=110, blue_lower_thresh=175)
+    mask = filter_blue(img, red_upper_thresh=60,
+                       green_upper_thresh=120,
+                       blue_lower_thresh=190) & \
+        filter_blue(img, red_upper_thresh=120,
+                    green_upper_thresh=170,
+                    blue_lower_thresh=200) & \
+        filter_blue(img, red_upper_thresh=175,
+                    green_upper_thresh=210,
+                    blue_lower_thresh=230) & \
+        filter_blue(img, red_upper_thresh=145,
+                    green_upper_thresh=180,
+                    blue_lower_thresh=210) & \
+        filter_blue(img, red_upper_thresh=37,
+                    green_upper_thresh=95,
+                    blue_lower_thresh=160) & \
+        filter_blue(img, red_upper_thresh=30,
+                    green_upper_thresh=65,
+                    blue_lower_thresh=130) & \
+        filter_blue(img, red_upper_thresh=130,
+                    green_upper_thresh=155,
+                    blue_lower_thresh=180) & \
+        filter_blue(img, red_upper_thresh=40,
+                    green_upper_thresh=35,
+                    blue_lower_thresh=85) & \
+        filter_blue(img, red_upper_thresh=30,
+                    green_upper_thresh=20,
+                    blue_lower_thresh=65) & \
+        filter_blue(img, red_upper_thresh=90,
+                    green_upper_thresh=90,
+                    blue_lower_thresh=140) & \
+        filter_blue(img, red_upper_thresh=60,
+                    green_upper_thresh=60,
+                    blue_lower_thresh=120) & \
+        filter_blue(img, red_upper_thresh=110,
+                    green_upper_thresh=110,
+                    blue_lower_thresh=175)
 
     if dtype == 'bool':
         pass
@@ -419,6 +468,7 @@ def filter_blue_pen(img, dtype="bool"):
 
     return mask
 
+
 def rgb_to_hed(img, dtype='uint8'):
     img = skimage.color.rgb2hed(img)
     if dtype == 'float' or dtype == 'float32':
@@ -427,9 +477,11 @@ def rgb_to_hed(img, dtype='uint8'):
         img = skimage.exposure.rescale_intensity(img, out_range=(0, 255)).astype(dtype)
     return img
 
+
 def rgb_to_hsv(img, dtype='uint8'):
     img = skimage.color.rgb2hsv(img)
     return img
+
 
 def mask_percent(img):
     """
@@ -441,11 +493,13 @@ def mask_percent(img):
     mask_percentage = 100 * (1 - np.count_nonzero(img) / img.size )
     return mask_percentage
 
+
 def tissue_percent(img):
     """
     Compute the percentage of an image that is tissue (i.e. not masked)
     """
     return 100 - mask_percent(img)
+
 
 def filter_tile(img):
     """
@@ -464,33 +518,41 @@ def filter_tile(img):
     
     return mask
 
-def filter_tiles(tiles, tissue_threshold=50, mask_tissue=False):
+
+def filter_tiles(tiles, tissue_threshold=50, mask_tissue=False, return_locations=False):
     """
     Apply filter_tile to a collection of tiles and return only the
     tiles whose tissue percentage exceeds the given threshold
     """
     filtered_tiles = []
-    for tile in tiles:
+    locations = []
+    for location, tile in enumerate(tiles):
         mask = filter_tile(tile)
         tissue_percentage = tissue_percent(mask)
         if mask_tissue:
             tile = tile * mask
         if tissue_percentage > tissue_threshold:
             filtered_tiles.append(tile)
+            locations.append(location)
+
     filtered_tiles = np.stack(filtered_tiles, axis=0)
-    
+  
     if mask_tissue:
         return filtered_tiles, mask, mask_tissue
+    elif return_locations:
+        return filtered_tiles, locations
     else:
-        return filtered_tiles    
+        return filtered_tiles
+
 
 """
 Prototypes - untested and should not be used
 """
 
+
 class TCGADataset(object):
     """
-    Prototype TCGA Dataset object to handle file download conversion to 
+    Prototype TCGA Dataset object to handle file download conversion to
     ML friendly tile format
     """
     def __init__(self, uuid, mpp=0.5):
@@ -508,7 +570,7 @@ class TCGADataset(object):
 
     def _add_annotation(annotation_dict, annotation_name):
         """
-        Add annotation from an annotation dictionary. Assumues the uuid is the key 
+        Add annotation from an annotation dictionary. Assumues the uuid is the key
         for the annotation
         """
         self.annotation[annotation_name] = annotation_dict[self.uuid]
