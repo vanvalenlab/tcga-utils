@@ -29,19 +29,20 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import os
-import pandas as pd
-import numpy as np
-import requests
 import json
-import re
-import openslide
-import PIL
 import math
-import cv2
+import os
+import re
 
 from skimage.morphology import remove_small_objects
 from openslide.deepzoom import DeepZoomGenerator
+
+import cv2
+import numpy as np
+import openslide
+import pandas as pd
+import PIL
+import requests
 
 
 def open_slide(svs_filename):
